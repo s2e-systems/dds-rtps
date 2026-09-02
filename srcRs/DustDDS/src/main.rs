@@ -1,7 +1,7 @@
 use clap::{Parser, ValueEnum};
 use dust_dds::{
     configuration::DustDdsConfigurationBuilder,
-    dds_async::topic::TopicAsync,
+    dds_async::{topic::TopicAsync, topic_description::TopicDescriptionAsync},
     domain::{
         domain_participant::DomainParticipant,
         domain_participant_factory::DomainParticipantFactory,
@@ -10,6 +10,7 @@ use dust_dds::{
     infrastructure::{
         error::DdsError,
         instance::InstanceHandle,
+        listener::NO_LISTENER,
         qos::{DataReaderQos, DataWriterQos, PublisherQos, QosKind, SubscriberQos},
         qos_policy::{
             self, DataRepresentationQosPolicy, DurabilityQosPolicy, HistoryQosPolicy,
@@ -17,17 +18,14 @@ use dust_dds::{
             OwnershipStrengthQosPolicy, PartitionQosPolicy, ReliabilityQosPolicy,
             XCDR_DATA_REPRESENTATION, XCDR2_DATA_REPRESENTATION,
         },
-        sample_info::{
-            ANY_INSTANCE_STATE, ANY_SAMPLE_STATE, ANY_VIEW_STATE, InstanceStateKind,
-        },
+        sample_info::{ANY_INSTANCE_STATE, ANY_SAMPLE_STATE, ANY_VIEW_STATE, InstanceStateKind},
         status::{InconsistentTopicStatus, NO_STATUS, StatusKind},
-        time::DurationKind,
+        time::{Duration, DurationKind},
     },
-    listener::NO_LISTENER,
     publication::data_writer::DataWriter,
     subscription::data_reader::DataReader,
 };
-use rand::{random, thread_rng, Rng};
+use rand::{Rng, random, thread_rng};
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
@@ -37,17 +35,6 @@ use std::{
 };
 
 include!(concat!(env!("OUT_DIR"), "/idl/shape.rs"));
-impl Clone for ShapeType {
-    fn clone(&self) -> Self {
-        Self {
-            color: self.color.clone(),
-            x: self.x,
-            y: self.y,
-            shapesize: self.shapesize,
-            additional_payload_size: self.additional_payload_size.clone(),
-        }
-    }
-}
 
 fn qos_policy_name(id: i32) -> String {
     match id {
@@ -762,17 +749,32 @@ fn init_publisher(
     logger.log_message("Running init_publisher() function", Verbosity::Debug);
 
     if options.coherent {
-        logger.log_message("    Presentation Coherent Access = not supported", Verbosity::Error);
-        return Err(InitializeError("Presentation Coherent Access = not supported".to_string()));
+        logger.log_message(
+            "    Presentation Coherent Access = not supported",
+            Verbosity::Error,
+        );
+        return Err(InitializeError(
+            "Presentation Coherent Access = not supported".to_string(),
+        ));
     }
     if options.ordered {
-        logger.log_message("    Presentation Ordered Access = not supported", Verbosity::Error);
-        return Err(InitializeError("Presentation Ordered Access = not supported".to_string()));
+        logger.log_message(
+            "    Presentation Ordered Access = not supported",
+            Verbosity::Error,
+        );
+        return Err(InitializeError(
+            "Presentation Ordered Access = not supported".to_string(),
+        ));
     }
     if let Some(access_scope) = options.access_scope {
         if access_scope != AccessScope::I {
-            logger.log_message("    Presentation Access Scope = not supported", Verbosity::Error);
-            return Err(InitializeError("Presentation Access Scope = not supported".to_string()));
+            logger.log_message(
+                "    Presentation Access Scope = not supported",
+                Verbosity::Error,
+            );
+            return Err(InitializeError(
+                "Presentation Access Scope = not supported".to_string(),
+            ));
         }
     }
 
@@ -795,14 +797,12 @@ fn init_publisher(
         );
 
         let topic = participant
-            .lookup_topicdescription(&topic_name)
-            .expect("lookup_topicdescription succeeds")
+            .find_topic::<ShapeType>(&topic_name, Duration::new(0, 0))
             .expect("topic exists");
 
         println!(
             "Create writer for topic: {} color: {}",
-            topic_name,
-            base_color
+            topic_name, base_color
         );
 
         let mut data_writer_qos = DataWriterQos {
@@ -820,9 +820,8 @@ fn init_publisher(
         }
         if let Some(lifespan) = options.lifespan {
             if lifespan > 0 {
-                data_writer_qos.lifespan.duration = DurationKind::Finite(
-                    core::time::Duration::from_millis(lifespan).into(),
-                );
+                data_writer_qos.lifespan.duration =
+                    DurationKind::Finite(core::time::Duration::from_millis(lifespan).into());
             }
         }
         if options.ownership_qos_policy().kind == OwnershipQosPolicyKind::Exclusive {
@@ -928,9 +927,7 @@ fn run_publisher(
             }
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(
-            options.write_period_ms,
-        ));
+        std::thread::sleep(std::time::Duration::from_millis(options.write_period_ms));
 
         n += 1;
         logger.log_message(format!("Publisher iteration: <{}>", n), Verbosity::Debug);
@@ -984,17 +981,32 @@ fn init_subscriber(
     logger.log_message("Running init_subscriber() function", Verbosity::Debug);
 
     if options.coherent {
-        logger.log_message("    Presentation Coherent Access = not supported", Verbosity::Error);
-        return Err(InitializeError("Presentation Coherent Access = not supported".to_string()));
+        logger.log_message(
+            "    Presentation Coherent Access = not supported",
+            Verbosity::Error,
+        );
+        return Err(InitializeError(
+            "Presentation Coherent Access = not supported".to_string(),
+        ));
     }
     if options.ordered {
-        logger.log_message("    Presentation Ordered Access = not supported", Verbosity::Error);
-        return Err(InitializeError("Presentation Ordered Access = not supported".to_string()));
+        logger.log_message(
+            "    Presentation Ordered Access = not supported",
+            Verbosity::Error,
+        );
+        return Err(InitializeError(
+            "Presentation Ordered Access = not supported".to_string(),
+        ));
     }
     if let Some(access_scope) = options.access_scope {
         if access_scope != AccessScope::I {
-            logger.log_message("    Presentation Access Scope = not supported", Verbosity::Error);
-            return Err(InitializeError("Presentation Access Scope = not supported".to_string()));
+            logger.log_message(
+                "    Presentation Access Scope = not supported",
+                Verbosity::Error,
+            );
+            return Err(InitializeError(
+                "Presentation Access Scope = not supported".to_string(),
+            ));
         }
     }
 
@@ -1015,8 +1027,7 @@ fn init_subscriber(
         );
 
         let topic = participant
-            .lookup_topicdescription(&topic_name)
-            .expect("lookup_topicdescription succeeds")
+            .find_topic::<ShapeType>(&topic_name, Duration::new(0, 0))
             .expect("topic exists");
 
         let mut data_reader_qos = DataReaderQos {
@@ -1034,9 +1045,8 @@ fn init_subscriber(
         }
         if let Some(time_filter) = options.time_filter {
             if time_filter > 0 {
-                data_reader_qos.time_based_filter.minimum_separation = DurationKind::Finite(
-                    core::time::Duration::from_millis(time_filter).into(),
-                );
+                data_reader_qos.time_based_filter.minimum_separation =
+                    DurationKind::Finite(core::time::Duration::from_millis(time_filter).into());
             }
         }
 
@@ -1099,8 +1109,7 @@ fn run_subscriber(
     logger.log_message("Running run_subscriber() function", Verbosity::Debug);
 
     let mut instance_handle_color: HashMap<InstanceHandle, String> = HashMap::new();
-    let mut previous_handles: Vec<Option<InstanceHandle>> =
-        vec![None; options.num_topics as usize];
+    let mut previous_handles: Vec<Option<InstanceHandle>> = vec![None; options.num_topics as usize];
     let mut n: u32 = 0;
 
     while all_done.try_recv().is_err() {
@@ -1146,13 +1155,11 @@ fn run_subscriber(
 
                 match read_result {
                     Ok(samples) => {
-                        let topic_desc_name =
-                            data_reader.get_topicdescription().get_name();
+                        let topic_desc_name = dust_dds::topic_definition::topic_description::TopicDescription::get_name(&data_reader.get_topicdescription());
 
                         for sample in samples {
                             if sample.sample_info.valid_data {
-                                let sample_data =
-                                    sample.data.as_ref().expect("data present");
+                                let sample_data = sample.data.as_ref().expect("data present");
                                 print!(
                                     "{:<10} {:<10} {:03} {:03} [{}]",
                                     topic_desc_name,
@@ -1200,8 +1207,7 @@ fn run_subscriber(
                                 std::io::stdout().flush().expect("flush stdout succeeds");
                             }
 
-                            previous_handles[i] =
-                                Some(sample.sample_info.instance_handle);
+                            previous_handles[i] = Some(sample.sample_info.instance_handle);
                         }
                     }
                     Err(_) => break,
@@ -1220,18 +1226,13 @@ fn run_subscriber(
             break;
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(
-            options.read_period_ms,
-        ));
+        std::thread::sleep(std::time::Duration::from_millis(options.read_period_ms));
     }
 
     Ok(())
 }
 
-fn initialize(
-    options: &Options,
-    logger: &Logger,
-) -> Result<DomainParticipant, InitializeError> {
+fn initialize(options: &Options, logger: &Logger) -> Result<DomainParticipant, InitializeError> {
     logger.log_message("Running initialize() function", Verbosity::Debug);
 
     if options.datafrag_size > 0 {
@@ -1256,7 +1257,7 @@ fn initialize(
                 options.periodic_announcement,
             ))
             .build()?;
-        participant_factory.set_configuration(configuration)?;
+        *participant_factory.get_mut_configuration() = configuration;
     }
 
     let participant = participant_factory.create_participant(
