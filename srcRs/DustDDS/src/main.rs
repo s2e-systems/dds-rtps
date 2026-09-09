@@ -1389,6 +1389,7 @@ fn run_app() -> Result<(), Return> {
     participant
         .delete_contained_entities()
         .expect("Entities being deleted");
+    std::thread::sleep(std::time::Duration::from_millis(500));
     println!("Done.");
     Ok(())
 }
